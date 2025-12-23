@@ -15,8 +15,10 @@ html, body {
     left: 0;
 }
 
+/* Image container — use a solid black background (no image) */
 #image-container {
-    background-color: #000000;
+    /* clear any background image and set black background */
+    background: #000000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -44,5 +46,3 @@ html, body {
     height: 100%;
     object-fit: cover;
 }
-
-

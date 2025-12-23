@@ -15,16 +15,6 @@ html, body {
     left: 0;
 }
 
-/* /* Image background */
-#image-container {
-    background-image: url("./media/banana.jpg");
-    background-size: cover;
-    background-position: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-*/
 #image-container {
     background-color: #000000;
     display: flex;
@@ -54,4 +44,5 @@ html, body {
     height: 100%;
     object-fit: cover;
 }
+
 

@@ -1,16 +1,24 @@
 const button = document.getElementById("playButton");
 const imageContainer = document.getElementById("image-container");
 
+if (!button || !imageContainer) {
+    console.warn("playButton or image-container not found in DOM");
+}
+
 let slideshowActive = false;
 let slideshowTimeouts = [];
 let slideshowContainer = null;
 
-button.addEventListener("click", () => {
-    if (slideshowActive) return;
-    startSlideshow();
-});
+if (button) {
+    button.addEventListener("click", () => {
+        if (slideshowActive) return;
+        startSlideshow();
+    });
+}
 
 function startSlideshow() {
+    if (!button || !imageContainer) return;
+
     slideshowActive = true;
     button.disabled = true;
 
@@ -106,6 +114,6 @@ function endSlideshow() {
         // fallback
         slideshowActive = false;
         imageContainer.style.display = "flex";
-        button.disabled = false;
+        if (button) button.disabled = false;
     }
 }

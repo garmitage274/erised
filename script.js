@@ -1,6 +1,11 @@
 const button = document.getElementById("playButton");
 const imageContainer = document.getElementById("image-container");
 
+// List of local jpgs inside media1. Add filenames here as needed.
+const MEDIA_IMAGES = [
+    "media1/banana.jpg"
+];
+
 if (!button || !imageContainer) {
     console.warn("playButton or image-container not found in DOM");
 }
@@ -16,8 +21,70 @@ if (button) {
     });
 }
 
+function buildImageList(count) {
+    if (!Array.isArray(MEDIA_IMAGES) || MEDIA_IMAGES.length === 0) return [];
+    const list = [];
+    // Repeat images if we need more than available files
+    for (let i = 0; i < count; i++) {
+        const file = MEDIA_IMAGES[i % MEDIA_IMAGES.length];
+        list.push(file);
+    }
+    return list;
+}
+
+function preloadImages(urls) {
+    return Promise.all(urls.map(src => new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve({ src, ok: true });
+        img.onerror = () => resolve({ src, ok: false });
+        img.src = src;
+    })));
+}
+
+function createSlideContainer() {
+    slideshowContainer = document.createElement("div");
+    slideshowContainer.id = "slideshow";
+    // Ensure container covers viewport and is on top
+    Object.assign(slideshowContainer.style, {
+        position: "fixed",
+        left: "0",
+        top: "0",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        zIndex: "9999",
+        display: "block",
+        // keep transparent so previous content isn't visible between crossfades
+        backgroundColor: "transparent"
+    });
+    document.body.appendChild(slideshowContainer);
+}
+
+function addImageToContainer(src) {
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = "slideshow";
+    Object.assign(img.style, {
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        transform: "translate(-50%, -50%)",
+        maxWidth: "100%",
+        maxHeight: "100%",
+        width: "auto",
+        height: "auto",
+        objectFit: "contain",
+        transition: "opacity 900ms ease",
+        opacity: "0",
+        willChange: "opacity"
+    });
+    img.className = "slide-image";
+    slideshowContainer.appendChild(img);
+    return img;
+}
+
 function startSlideshow() {
-    if (!button || !imageContainer) return;
+    if (!button || !imageContainer || slideshowActive) return;
 
     slideshowActive = true;
     button.disabled = true;
@@ -25,33 +92,15 @@ function startSlideshow() {
     // Hide the home container
     imageContainer.style.display = "none";
 
-    // Create slideshow container
-    slideshowContainer = document.createElement("div");
-    slideshowContainer.id = "slideshow";
-    document.body.appendChild(slideshowContainer);
+    createSlideContainer();
 
-    // Prepare 6 random image URLs (use picsum to keep it simple)
-    const images = [];
-    const base = Date.now();
-    for (let i = 0; i < 6; i++) {
-        // Use a varying query param so we get different images
-        images.push(`https://picsum.photos/1920/1080?random=${base + i}`);
-    }
+    // Build list of images (use 6 by default)
+    const images = buildImageList(6);
 
-    // Preload images
-    const preloads = images.map(src => {
-        return new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => resolve(src);
-            img.onerror = () => resolve(src); // resolve even on error to keep slideshow moving
-            img.src = src;
-        });
-    });
-
-    Promise.all(preloads).then(() => {
-        // Show images one by one with ripple animation
+    // Preload local images
+    preloadImages(images).then(() => {
         let index = 0;
-        let previousSlide = null;
+        let visibleImg = null;
 
         const showNext = () => {
             if (index >= images.length) {
@@ -60,58 +109,69 @@ function startSlideshow() {
             }
 
             const src = images[index];
-            const img = document.createElement("img");
-            img.className = "slide ripple";
-            img.src = src;
-            img.alt = `Slideshow image ${index + 1}`;
 
-            // Append new slide on top
-            slideshowContainer.appendChild(img);
+            // Create an img element and append but keep it invisible until it's painted
+            const imgEl = addImageToContainer(src);
 
-            // After a short while remove previous (with out animation)
-            if (previousSlide) {
-                // add out animation and remove after animation
-                previousSlide.classList.add("out");
-                const t = setTimeout(() => {
-                    try { slideshowContainer.removeChild(previousSlide); } catch (e) {}
-                }, 900); // match slideOut duration
-                slideshowTimeouts.push(t);
-            }
+            // Ensure previous image stays visible until the new one is fully faded in
+            requestAnimationFrame(() => {
+                // force a layout so transition will run
+                // eslint-disable-next-line no-unused-expressions
+                imgEl.offsetWidth;
+                // fade in the new image
+                imgEl.style.opacity = "1";
 
-            previousSlide = img;
+                // fade out previous image if present
+                if (visibleImg) {
+                    visibleImg.style.opacity = "0";
+                    // remove previous after transition
+                    const removeAfter = () => {
+                        try { slideshowContainer.removeChild(visibleImg); } catch (e) {}
+                        visibleImg = null;
+                    };
+                    // use transitionend if available, fallback to timeout
+                    const onEnd = (ev) => {
+                        if (ev && ev.propertyName !== "opacity") return;
+                        visibleImg.removeEventListener("transitionend", onEnd);
+                        removeAfter();
+                    };
+                    visibleImg.addEventListener("transitionend", onEnd);
+                    // fallback
+                    const t = setTimeout(() => {
+                        try { if (visibleImg && visibleImg.parentNode === slideshowContainer) slideshowContainer.removeChild(visibleImg); } catch (e) {}
+                        visibleImg = null;
+                    }, 1000);
+                    slideshowTimeouts.push(t);
+                }
+
+                // make this the current visible image
+                visibleImg = imgEl;
+            });
+
             index++;
-
-            // Schedule next slide after 5 seconds
             const timeout = setTimeout(showNext, 5000);
             slideshowTimeouts.push(timeout);
         };
 
-        // Start the sequence
         showNext();
     });
 }
 
 function endSlideshow() {
-    // Clear any pending timeouts
     slideshowTimeouts.forEach(t => clearTimeout(t));
     slideshowTimeouts = [];
 
-    // Remove slideshow container (with a short fade to avoid abrupt jump)
     if (slideshowContainer) {
-        // optional small fade before removal
         slideshowContainer.style.transition = "opacity 400ms ease";
         slideshowContainer.style.opacity = "0";
         setTimeout(() => {
             try { document.body.removeChild(slideshowContainer); } catch (e) {}
             slideshowContainer = null;
             slideshowActive = false;
-            // Return to homepage
             imageContainer.style.display = "flex";
-            button.disabled = false;
-            imageContainer.style.opacity = "";
+            if (button) button.disabled = false;
         }, 420);
     } else {
-        // fallback
         slideshowActive = false;
         imageContainer.style.display = "flex";
         if (button) button.disabled = false;

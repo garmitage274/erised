@@ -46,3 +46,68 @@ html, body {
     height: 100%;
     object-fit: cover;
 }
+
+/* ---- Slideshow styles ---- */
+#slideshow {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slide {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    will-change: clip-path, opacity, transform;
+}
+
+/* Ripple reveal animation (clip-path expands from center) */
+@keyframes rippleIn {
+    from {
+        clip-path: circle(0% at 50% 50%);
+        opacity: 0.25;
+        transform: scale(1.02);
+    }
+    to {
+        clip-path: circle(150% at 50% 50%);
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Fade out the previous slide slightly */
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(1.02);
+    }
+}
+
+.slide.ripple {
+    animation: rippleIn 1s cubic-bezier(.22,.9,.36,1) forwards;
+}
+
+.slide.out {
+    animation: slideOut 0.8s ease forwards;
+}
+
+/* Small accessibility/UX: dim the button while slideshow runs */
+#playButton[disabled] {
+    opacity: 0.6;
+    cursor: default;
+}
